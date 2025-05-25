@@ -1,0 +1,9 @@
+{
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}",
+        "${workspaceFolder}/handlers",
+        "${workspaceFolder}/utils",
+        "${workspaceFolder}/database"
+    ],
+    "python.analysis.logLevel": "Trace"
+}
