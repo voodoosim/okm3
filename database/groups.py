@@ -1,29 +1,18 @@
-import json
-import os
+from datetime import datetime  # datetime 임포트 추가
 from typing import Dict
 
-from config import GROUPS_FILE, logger
+from config import logger
+from utils.storage import load_groups, save_groups
 
 
 async def get_groups() -> Dict[str, Dict]:
     """그룹 데이터를 로드."""
-    try:
-        if os.path.exists(GROUPS_FILE):
-            with open(GROUPS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        return {}
-    except Exception as e:
-        logger.error("get_groups_failed", error=str(e))
-        return {}
+    return await load_groups()
 
 
 async def save_groups(groups: Dict[str, Dict]) -> None:
     """그룹 데이터를 저장."""
-    try:
-        with open(GROUPS_FILE, "w", encoding="utf-8") as f:
-            json.dump(groups, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        logger.error("save_groups_failed", error=str(e))
+    await save_groups(groups)
 
 
 async def get_notification_status(chat_id: int) -> bool:
@@ -58,6 +47,7 @@ async def add_group(chat_id: int, title: str, admin_id: int) -> bool:
         groups[str(chat_id)] = {
             "title": title,
             "admin_id": admin_id,
+            "added_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "muted": groups.get(str(chat_id), {}).get("muted", False),
         }
         await save_groups(groups)

@@ -27,10 +27,7 @@ async def unban_user_cmd(message: types.Message, bot: Bot) -> None:
     try:
         if not message.from_user:
             logger.error("unban_cmd_error", error="No user information")
-            try:
-                await message.reply("사용자 정보를 확인할 수 없습니다.")
-            except Exception as e:
-                logger.error("reply_failed", chat_id=message.chat.id, error=str(e))
+            await message.reply("사용자 정보를 확인할 수 없습니다.")
             return
 
         is_admin_user = await is_admin(message.from_user.id)
@@ -50,10 +47,7 @@ async def unban_user_cmd(message: types.Message, bot: Bot) -> None:
                 user_id=message.from_user.id,
                 chat_id=message.chat.id,
             )
-            try:
-                await message.reply("권한이 없습니다.")
-            except Exception as e:
-                logger.error("reply_failed", chat_id=message.chat.id, error=str(e))
+            await message.reply("권한이 없습니다.")
             return
 
         chat_id = message.chat.id
@@ -62,10 +56,7 @@ async def unban_user_cmd(message: types.Message, bot: Bot) -> None:
             logger.warning(
                 "private_chat", user_id=message.from_user.id, chat_id=message.chat.id
             )
-            try:
-                await message.reply("그룹에서만 사용 가능합니다.")
-            except Exception as e:
-                logger.error("reply_failed", chat_id=message.chat.id, error=str(e))
+            await message.reply("그룹에서만 사용 가능합니다.")
             return
 
         user_info = await extract_user_info(message, bot)
@@ -84,25 +75,16 @@ async def unban_user_cmd(message: types.Message, bot: Bot) -> None:
         reason = user_info["reason"]
 
         if not target_id:
-            try:
-                await message.reply("사용자를 지정하세요 (답장, 사용자 ID 입력).")
-            except Exception as e:
-                logger.error("reply_failed", chat_id=message.chat.id, error=str(e))
+            await message.reply("사용자를 지정하세요 (답장, 사용자 ID 입력).")
             return
 
         await process_unban(message, bot, target_id, target_username, reason or "")
     except ValueError as e:
         logger.error("unban_cmd_value_error", chat_id=message.chat.id, error=str(e))
-        try:
-            await message.reply(f"입력 오류: {str(e)}")
-        except Exception as e:
-            logger.error("reply_failed", chat_id=message.chat.id, error=str(e))
+        await message.reply(f"입력 오류: {str(e)}")
     except Exception as e:
         logger.error("unban_cmd_error", chat_id=message.chat.id, error=str(e))
-        try:
-            await message.reply("내부 오류가 발생했습니다.")
-        except Exception as e:
-            logger.error("reply_failed", chat_id=message.chat.id, error=str(e))
+        await message.reply("내부 오류가 발생했습니다.")
 
 
 async def process_unban(
@@ -118,10 +100,7 @@ async def process_unban(
     logger.info("process_unban_attempt", chat_id=chat_id, target_id=target_id)
 
     if not message.from_user:
-        try:
-            await message.reply("사용자 정보를 확인할 수 없습니다.")
-        except Exception as e:
-            logger.error("reply_failed", chat_id=message.chat.id, error=str(e))
+        await message.reply("사용자 정보를 확인할 수 없습니다.")
         return
 
     try:
@@ -129,12 +108,9 @@ async def process_unban(
         user = chat_member.user
         target_username = user.username or "Unknown"
         if not await is_banned(target_id):
-            try:
-                await message.reply(
-                    f"@{target_username} ({target_id})는 차단되지 않았습니다."
-                )
-            except Exception as e:
-                logger.error("reply_failed", chat_id=message.chat.id, error=str(e))
+            await message.reply(
+                f"@{target_username} ({target_id})는 차단되지 않았습니다."
+            )
             return
 
         await bot.unban_chat_member(chat_id, target_id)
@@ -144,11 +120,8 @@ async def process_unban(
         unban_message = (
             f"✅ @{target_username} ({target_id}) 차단 해제\n" f"{reason_text}"
         )
-        try:
-            await message.reply(unban_message)
-            logger.info("reply_sent", chat_id=message.chat.id, message=unban_message)
-        except Exception as e:
-            logger.error("reply_failed", chat_id=message.chat.id, error=str(e))
+        await message.reply(unban_message)
+        logger.info("reply_sent", chat_id=message.chat.id, message=unban_message)
 
         await unban_user(target_id)
 
@@ -178,10 +151,7 @@ async def process_unban(
         logger.error(
             "process_unban_error", chat_id=chat_id, target_id=target_id, error=str(e)
         )
-        try:
-            await message.reply("❌ 차단 해제 중 오류가 발생했습니다.")
-        except Exception as e:
-            logger.error("reply_failed", chat_id=message.chat.id, error=str(e))
+        await message.reply("❌ 차단 해제 중 오류가 발생했습니다.")
 
 
 async def unban_in_group(

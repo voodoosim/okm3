@@ -1,159 +1,154 @@
 import json
 import os
-from typing import Dict
+from datetime import datetime
+from typing import Optional
+
+import aiofiles
 
 from config import ADMINS_FILE, BANNED_USERS_FILE, logger
 
 
-async def get_banned_users() -> Dict[str, Dict]:
-    """차단된 사용자 데이터를 로드."""
+async def is_banned(user_id: int) -> bool:
     try:
         if os.path.exists(BANNED_USERS_FILE):
-            with open(BANNED_USERS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        return {}
+            async with aiofiles.open(BANNED_USERS_FILE, "r") as f:
+                banned_users = json.loads(await f.read())
+            return str(user_id) in banned_users
+        return False
     except Exception as e:
-        logger.error("get_banned_users_failed", error=str(e))
-        return {}
+        logger.error(f"Error checking banned user: {e}")
+        return False
 
 
-async def save_banned_users(users: Dict[str, Dict]) -> None:
-    """차단된 사용자 데이터를 저장."""
+async def unban_user(user_id: int) -> None:
     try:
-        with open(BANNED_USERS_FILE, "w", encoding="utf-8") as f:
-            json.dump(users, f, ensure_ascii=False, indent=2)
+        if os.path.exists(BANNED_USERS_FILE):
+            async with aiofiles.open(BANNED_USERS_FILE, "r") as f:
+                banned_users = json.loads(await f.read())
+            if str(user_id) in banned_users:
+                del banned_users[str(user_id)]
+                async with aiofiles.open(BANNED_USERS_FILE, "w") as f:
+                    await f.write(json.dumps(banned_users, indent=2))
     except Exception as e:
-        logger.error("save_banned_users_failed", error=str(e))
-
-
-async def get_admins() -> Dict[str, Dict]:
-    """관리자 데이터를 로d."""
-    try:
-        if os.path.exists(ADMINS_FILE):
-            with open(ADMINS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        return {}
-    except Exception as e:
-        logger.error("get_admins_failed", error=str(e))
-        return {}
-
-
-async def save_admins(admins: Dict[str, Dict]) -> None:
-    """관리자 데이터를 저장."""
-    try:
-        with open(ADMINS_FILE, "w", encoding="utf-8") as f:
-            json.dump(admins, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        logger.error("save_admins_failed", error=str(e))
+        logger.error(f"Error unbanning user: {e}")
 
 
 async def ban_user(
     user_id: int,
-    username: str,
+    username: Optional[str],
     admin_id: int,
-    admin_username: str,
+    admin_username: Optional[str],
     reason: str,
     chat_id: int,
 ) -> None:
-    """사용자 차단 기록."""
     try:
-        users = await get_banned_users()
-        users[str(user_id)] = {
-            "username": username,
+        banned_users = {}
+        if os.path.exists(BANNED_USERS_FILE):
+            async with aiofiles.open(BANNED_USERS_FILE, "r") as f:
+                banned_users = json.loads(await f.read())
+        banned_users[str(user_id)] = {
+            "username": username or "",
             "admin_id": admin_id,
-            "admin_username": admin_username,
+            "admin_username": admin_username or "",
             "reason": reason,
             "chat_id": chat_id,
+            "timestamp": datetime.now().isoformat(),
         }
-        await save_banned_users(users)
-        logger.info("ban_user_success", user_id=user_id, chat_id=chat_id)
+        async with aiofiles.open(BANNED_USERS_FILE, "w") as f:
+            await f.write(json.dumps(banned_users, indent=2))
     except Exception as e:
-        logger.error("ban_user_failed", user_id=user_id, chat_id=chat_id, error=str(e))
-        raise
+        logger.error(f"Error banning user: {e}")
 
 
 async def kick_user(
     user_id: int,
-    username: str,
+    username: Optional[str],
     admin_id: int,
-    admin_username: str,
+    admin_username: Optional[str],
     reason: str,
     chat_id: int,
 ) -> None:
-    """사용자 강퇴 기록."""
     try:
-        logger.info(
-            "kick_user_success",
-            user_id=user_id,
-            username=username,
-            admin_id=admin_id,
-            admin_username=admin_username,
-            reason=reason,
-            chat_id=chat_id,
+        kicked_users = {}
+        kicked_file = os.path.join(
+            os.path.dirname(BANNED_USERS_FILE), "kicked_users.json"
         )
+        if os.path.exists(kicked_file):
+            async with aiofiles.open(kicked_file, "r") as f:
+                kicked_users = json.loads(await f.read())
+        kicked_users[str(user_id)] = {
+            "username": username or "",
+            "admin_id": admin_id,
+            "admin_username": admin_username or "",
+            "reason": reason,
+            "chat_id": chat_id,
+            "timestamp": datetime.now().isoformat(),
+        }
+        async with aiofiles.open(kicked_file, "w") as f:
+            await f.write(json.dumps(kicked_users, indent=2))
     except Exception as e:
-        logger.error("kick_user_failed", user_id=user_id, chat_id=chat_id, error=str(e))
-        raise
+        logger.error(f"Error kicking user: {e}")
+
+
+async def is_admin(user_id: int) -> bool:
+    try:
+        if os.path.exists(ADMINS_FILE):
+            async with aiofiles.open(ADMINS_FILE, "r") as f:
+                admins = json.loads(await f.read())
+            return str(user_id) in admins
+        return False
+    except Exception as e:
+        logger.error(f"Error checking admin: {e}")
+        return False
 
 
 async def add_admin(
-    user_id: int,
-    username: str,
     admin_id: int,
-    admin_username: str,
-) -> None:
-    """관리자 추가."""
+    username: Optional[str],
+    added_by_id: int,
+    added_by_username: Optional[str],
+) -> bool:
     try:
-        admins = await get_admins()
-        admins[str(user_id)] = {
-            "username": username,
-            "added_by": admin_id,
-            "added_by_username": admin_username,
+        admins = {}
+        if os.path.exists(ADMINS_FILE):
+            async with aiofiles.open(ADMINS_FILE, "r") as f:
+                admins = json.loads(await f.read())
+        admins[str(admin_id)] = {
+            "username": username or "",
+            "added_by_id": added_by_id,
+            "added_by_username": added_by_username or "",
+            "timestamp": datetime.now().isoformat(),
         }
-        await save_admins(admins)
-        logger.info("add_admin_success", user_id=user_id)
+        async with aiofiles.open(ADMINS_FILE, "w") as f:
+            await f.write(json.dumps(admins, indent=2))
+        return True
     except Exception as e:
-        logger.error("add_admin_failed", user_id=user_id, error=str(e))
-        raise
-
-
-async def remove_admin(user_id: int) -> bool:
-    """관리자 제거."""
-    try:
-        admins = await get_admins()
-        if str(user_id) in admins:
-            del admins[str(user_id)]
-            await save_admins(admins)
-            logger.info("remove_admin_success", user_id=user_id)
-            return True
-        logger.warning("remove_admin_not_found", user_id=user_id)
-        return False
-    except Exception as e:
-        logger.error("remove_admin_failed", user_id=user_id, error=str(e))
-        raise
-
-
-async def is_banned(user_id: int) -> bool:
-    """사용자가 차단되었는지 확인."""
-    try:
-        users = await get_banned_users()
-        return str(user_id) in users
-    except Exception as e:
-        logger.error("is_banned_failed", user_id=user_id, error=str(e))
+        logger.error(f"Error adding admin: {e}")
         return False
 
 
-async def unban_user(user_id: int) -> bool:
-    """사용자 차단 해제."""
+async def remove_admin(admin_id: int) -> bool:
     try:
-        users = await get_banned_users()
-        if str(user_id) in users:
-            del users[str(user_id)]
-            await save_banned_users(users)
-            logger.info("unban_user_success", user_id=user_id)
-            return True
-        logger.warning("unban_user_not_found", user_id=user_id)
+        if os.path.exists(ADMINS_FILE):
+            async with aiofiles.open(ADMINS_FILE, "r") as f:
+                admins = json.loads(await f.read())
+            if str(admin_id) in admins:
+                del admins[str(admin_id)]
+                async with aiofiles.open(ADMINS_FILE, "w") as f:
+                    await f.write(json.dumps(admins, indent=2))
+                return True
         return False
     except Exception as e:
-        logger.error("unban_user_failed", user_id=user_id, error=str(e))
-        raise
+        logger.error(f"Error removing admin: {e}")
+        return False
+
+
+async def get_admins() -> dict:
+    try:
+        if os.path.exists(ADMINS_FILE):
+            async with aiofiles.open(ADMINS_FILE, "r") as f:
+                return json.loads(await f.read())
+        return {}
+    except Exception as e:
+        logger.error(f"Error getting admins: {e}")
+        return {}
